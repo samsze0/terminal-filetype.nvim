@@ -1,3 +1,6 @@
+-- Tweak of:
+-- https://github.com/norcalli/nvim-terminal.lua
+
 local utils = require("utils")
 local color_utils = require("utils.colors")
 
