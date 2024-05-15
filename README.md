@@ -2,7 +2,7 @@
 
 A neovim plugin that parses terminal ansi escape sequences and annotates the buffer with colors
 
-This plugin is based on [norcalli/nvim-terminal.lua](https://github.com/norcalli/nvim-terminal.lua)
+This plugin a refactor of [norcalli/nvim-terminal.lua](https://github.com/norcalli/nvim-terminal.lua)
 
 ```lua
 {
