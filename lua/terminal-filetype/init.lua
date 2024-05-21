@@ -2,7 +2,10 @@
 -- https://github.com/norcalli/nvim-terminal.lua
 
 local utils = require("utils")
+local str_utils = require("utils.string")
 local color_utils = require("utils.colors")
+local opts_utils = require("utils.opts")
+local tbl_utils = require("utils.table")
 
 local HIGHLIGHT_NAME_PREFIX = "terminalft"
 local namespace = vim.api.nvim_create_namespace("terminal-filetype")
@@ -106,7 +109,7 @@ local function process_color(rgb_color_table, code, current_attributes)
   end
 
   if debug then
-    notifier.debug(utils.str_fmt("Processed color", { current_attributes = current_attributes }))
+    notifier.debug(str_utils.fmt("Processed color", { current_attributes = current_attributes }))
   end
   return current_attributes
 end
@@ -120,7 +123,7 @@ local function format_gui_attribute(gui_attributes, delimiter)
   delimiter = delimiter or ","
 
   local result = table.concat(
-    utils.filter(gui_attributes, function(k, v) return v end),
+    tbl_utils.filter(gui_attributes, function(k, v) return v end),
     delimiter
   )
 
@@ -137,7 +140,7 @@ end
 ---@return TerminalFiletypeHighlightAttributes?
 local function process_code_seq(rgb_color_table, code_seq, current_attributes)
   if debug then
-    notifier.debug(utils.str_fmt(
+    notifier.debug(str_utils.fmt(
       "Processing code",
       { code = code_seq, current_attributes = current_attributes }
     ))
@@ -212,7 +215,7 @@ local function process_code_seq(rgb_color_table, code_seq, current_attributes)
   end
 
   if debug then
-    notifier.debug(utils.str_fmt("Processed code", { current_attributes = current_attributes }))
+    notifier.debug(str_utils.fmt("Processed code", { current_attributes = current_attributes }))
   end
   return current_attributes
 end
@@ -249,7 +252,7 @@ local function table_is_empty(t) return next(t) == nil end
 ---@return string
 local function create_highlight_group(buf, attributes)
   if debug then
-    notifier.debug(utils.str_fmt("Creating highlight group", { attributes = attributes }))
+    notifier.debug(str_utils.fmt("Creating highlight group", { attributes = attributes }))
   end
 
   if table_is_empty(attributes) then return "Normal" end
@@ -285,7 +288,7 @@ local function create_highlight(
   region_byte_end
 )
   if debug then
-    notifier.debug(utils.str_fmt("Creating highlight", {
+    notifier.debug(str_utils.fmt("Creating highlight", {
       buf = buf,
       current_attributes = current_attributes,
       region_line_start = region_line_start,
@@ -341,7 +344,7 @@ end
 ---@param rgb_color_table table<number, string>
 ---@return nil
 local function highlight_buffer(buf, rgb_color_table)
-  if debug then notifier.debug(utils.str_fmt("Highlighting buffer", { buf = buf })) end
+  if debug then notifier.debug(str_utils.fmt("Highlighting buffer", { buf = buf })) end
 
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, true)
 
@@ -398,7 +401,7 @@ end
 ---@alias TerminalFiletypeOptions { notifier?: { debug: fun(message: string), info: fun(message: string), warn: fun(message: string), error: fun(message: string) } }
 ---@param opts? TerminalFiletypeOptions
 M.setup = function(opts)
-  config = utils.opts_deep_extend(config, opts)
+  config = opts_utils.deep_extend(config, opts)
   ---@cast opts TerminalFiletypeOptions
 
   -- FIX: autocmd not applying highlight correctly. For now plugin users have to call refresh_highlight manually
