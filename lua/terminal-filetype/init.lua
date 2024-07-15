@@ -6,31 +6,24 @@ local str_utils = require("utils.string")
 local color_utils = require("utils.colors")
 local opts_utils = require("utils.opts")
 local tbl_utils = require("utils.table")
+local autocmd_utils = require("utils.autocommand")
+local buf_utils = require("utils.buffer")
 
 local HIGHLIGHT_NAME_PREFIX = "terminalft"
 local namespace = vim.api.nvim_create_namespace("terminal-filetype")
-local autocmd_group =
-  vim.api.nvim_create_augroup("terminal-filetype", { clear = true })
+local autocmd_group = vim.api.nvim_create_augroup("terminal-filetype", { clear = true })
 
 local debug = os.getenv("TERMINAL_FT_NVIM_DEBUG") -- Hinders performance. Toggle on only when needed
 
 local notifier = {
-  debug = function(message)
-    vim.notify(message, vim.log.levels.DEBUG)
-  end,
-  info = function(message)
-    vim.notify(message, vim.log.levels.INFO)
-  end,
-  warn = function(message)
-    vim.notify(message, vim.log.levels.WARN)
-  end,
-  error = function(message)
-    vim.notify(message, vim.log.levels.ERROR)
-  end,
+  debug = function(message) vim.notify(message, vim.log.levels.DEBUG) end,
+  info = function(message) vim.notify(message, vim.log.levels.INFO) end,
+  warn = function(message) vim.notify(message, vim.log.levels.WARN) end,
+  error = function(message) vim.notify(message, vim.log.levels.ERROR) end,
 }
 
 local config = {
-  notifier = notifier
+  notifier = notifier,
 }
 
 -- TODO: populate rgb_color_table
@@ -50,9 +43,7 @@ local M = {}
 ---@param current_attributes TerminalFiletypeHighlightAttributes
 ---@return TerminalFiletypeHighlightAttributes
 local function process_color(rgb_color_table, code, current_attributes)
-  if debug then
-    notifier.debug("Processing color")
-  end
+  if debug then notifier.debug("Processing color") end
 
   current_attributes = current_attributes or {}
 
@@ -122,10 +113,8 @@ end
 local function format_gui_attribute(gui_attributes, delimiter)
   delimiter = delimiter or ","
 
-  local result = table.concat(
-    tbl_utils.filter(gui_attributes, function(k, v) return v end),
-    delimiter
-  )
+  local result =
+    table.concat(tbl_utils.filter(gui_attributes, function(k, v) return v end), delimiter)
 
   if result == "" then result = "NONE" end
 
@@ -140,19 +129,16 @@ end
 ---@return TerminalFiletypeHighlightAttributes?
 local function process_code_seq(rgb_color_table, code_seq, current_attributes)
   if debug then
-    notifier.debug(str_utils.fmt(
-      "Processing code",
-      { code = code_seq, current_attributes = current_attributes }
-    ))
+    notifier.debug(
+      str_utils.fmt("Processing code", { code = code_seq, current_attributes = current_attributes })
+    )
   end
 
   -- CSI "m" is equivalent to CSI "0m", which is Reset, which means null the attributes
   if #code_seq == 0 then return {} end
 
   local matches = code_seq:find(";")
-  if not matches then
-    return process_color(rgb_color_table, code_seq, current_attributes)
-  end
+  if not matches then return process_color(rgb_color_table, code_seq, current_attributes) end
 
   local find_start = 1
   while find_start <= #code_seq do
@@ -175,7 +161,6 @@ local function process_code_seq(rgb_color_table, code_seq, current_attributes)
     if segment == ";5;" or segment == ":5:" then
       local color_segment = code_seq:sub(find_start + #"38;2;"):match("^(%d+)")
       if not color_segment then
-
         notifier.error("Invalid color code: " .. code_seq:sub(find_start))
         return
       end
@@ -191,9 +176,9 @@ local function process_code_seq(rgb_color_table, code_seq, current_attributes)
       end
     elseif segment == ";2;" or segment == ":2:" then
       local separator = segment:sub(1, 1)
-      local r, g, b, len = code_seq:sub(find_start + #"38;2;"):match(
-        "^(%d+)" .. separator .. "(%d+)" .. separator .. "(%d+)()"
-      )
+      local r, g, b, len = code_seq
+        :sub(find_start + #"38;2;")
+        :match("^(%d+)" .. separator .. "(%d+)" .. separator .. "(%d+)()")
       if not r then
         notifier.error("Invalid color code: " .. code_seq:sub(find_start))
         return
@@ -204,8 +189,7 @@ local function process_code_seq(rgb_color_table, code_seq, current_attributes)
         notifier.error("Invalid color code: " .. r .. ", " .. g .. ", " .. b)
         return
       else
-        current_attributes[is_foreground and "guifg" or "guibg"] =
-          color_utils.rgb_to_hex(r, g, b)
+        current_attributes[is_foreground and "guifg" or "guibg"] = color_utils.rgb_to_hex(r, g, b)
       end
     else
       notifier.error("Invalid color code: " .. code_seq:sub(find_start))
@@ -318,14 +302,7 @@ local function create_highlight(
       -1
     )
     for linenum = region_line_start + 1, region_line_end - 1 do
-      vim.api.nvim_buf_add_highlight(
-        buf,
-        namespace,
-        highlight_name,
-        linenum,
-        0,
-        -1
-      )
+      vim.api.nvim_buf_add_highlight(buf, namespace, highlight_name, linenum, 0, -1)
     end
     vim.api.nvim_buf_add_highlight(
       buf,
@@ -368,8 +345,7 @@ local function highlight_buffer(buf, rgb_color_table)
       if code_seq:sub(-1) == "m" then
         code_seq = code_seq:sub(1, -2) -- Remove the last character
         ---@diagnostic disable-next-line: cast-local-type
-        current_attributes =
-          process_code_seq(rgb_color_table, code_seq, current_attributes)
+        current_attributes = process_code_seq(rgb_color_table, code_seq, current_attributes)
         if not current_attributes then error("Fail to parse code sequence") end
       else
         current_attributes = {}
@@ -404,15 +380,20 @@ M.setup = function(opts)
   config = opts_utils.deep_extend(config, opts)
   ---@cast opts TerminalFiletypeOptions
 
-  -- FIX: autocmd not applying highlight correctly. For now plugin users have to call refresh_highlight manually
-  -- vim.api.nvim_create_autocmd({
-  --   "FileType",
-  -- }, {
-  --   group = autocmd_group,
-  --   callback = function(ctx)
-  --     M.refresh_highlight(0)
-  --   end,
-  -- })
+  autocmd_utils.create({
+    events = { "FileType" },
+    group = autocmd_group,
+    pattern = "terminal",
+    lua_callback = function(ctx)
+      assert(ctx.buf == vim.api.nvim_get_current_buf())
+
+      M.refresh_highlight(ctx.buf)
+
+      buf_utils.attach(ctx.buf, {
+        on_lines = function(lines) M.refresh_highlight(ctx.buf) end,
+      })
+    end,
+  })
 end
 
 return M
